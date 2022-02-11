@@ -44,7 +44,7 @@ Path(exp_folder).mkdir(parents=True, exist_ok=True)
 
 import wandb
 
-wandb.init(project=f"conll-res-size-{make_t5_template.filter_limit}", entity="kmanoharmurali")
+wandb.init(project=f"conll-res-size-{make_t5_template.filter_limit}", entity="manoharupv")
 
 wandb.config = config.params
 
@@ -222,6 +222,8 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
         config.logger.info(fscore)
         config.logger.info(cm)
 
+        return fscore, cm
+
     best_loss = np.inf
     for epoch in range(config.params["EPOCHS"]):
         train_loss = engine.train_fn(train_data_loader, model, optimizer, device, scheduler)
@@ -248,9 +250,10 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
     config.logger.info("Scores without None")
     config.logger.info("============================================")
     finalsummary = engine.calc_scores_wo_none(test_data_loader, model, device)
-    wandb.run.summary["test_scores"] = finalsummary
 
-    test_standard_speedup()
+    fscore, cm = test_standard_speedup()
+    wandb.run.summary["test_scores"] = cm
+    wandb.run.summary["fscore"] = fscore
 
     config.logger.info("="*20)
     shuffle(val_sents)
@@ -283,6 +286,6 @@ if __name__ == "__main__":
     if config.params["TEMPLATE"] == 2:
         replications = numtags
 
-    size = 99999 #MAX size
+    size = 9999999 #MAX size
     size = size * replications
     whole_train(size, numtags, train_sents, val_sents, test_sents)

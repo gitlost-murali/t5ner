@@ -192,7 +192,7 @@ def return_predictions_overall(data_loader, model, device, numtags):
     model.eval()
 
     preds = []
-    for data in data_loader:
+    for data in tqdm(data_loader, total=len(data_loader)):
         for k, v in data.items(): #BioBERT is taking alot of space
             if k == "tagnames": continue
             data[k] = v.to(device)

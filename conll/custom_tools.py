@@ -1,3 +1,5 @@
+import sys
+
 def find_tags_andiob(searchphrases_withtags, sent):
     """
     Given a set of prediction phrases with their tags
@@ -13,10 +15,21 @@ def find_tags_andiob(searchphrases_withtags, sent):
     """
     tags = ['O' for _ in sent]
     for searchphrase, tag in searchphrases_withtags:
+        if searchphrase=="": continue
         searchtokens = searchphrase.split()
+        if len(searchtokens)==0: continue
         phraselen = len(searchtokens)
         iobseq = [f"I-{tag}" for _ in range(phraselen)]
-        iobseq[0] = f"B-{tag}"
+        try:
+            iobseq[0] = f"B-{tag}"
+        except Exception as e:
+            print(f"Error occured IOB seq {iobseq}")
+            print(f"Error occured searchtokens -> {searchtokens}")
+            print(f"Error occured searchphrases -> {searchphrase}")
+            print(f"Error occured searchphrases -> {searchphrases_withtags}")
+            print(f"Error occured sent -> {sent}")
+            sys.exit(0)
+
         for ix, _ in enumerate(sent):
             if searchtokens == sent[ix:ix+phraselen]:
                 tags[ix:ix+phraselen] = iobseq
