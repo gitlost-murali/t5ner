@@ -185,88 +185,6 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
     snooze_switch = 0
     snooze_limit = 5
 
-    best_loss = np.inf
-    for epoch in range(config.params["EPOCHS"]):
-        train_loss = engine.train_fn(train_data_loader, model, optimizer, device, scheduler)
-        valid_loss = engine.eval_fn(valid_data_loader, model, device)
-        losses_tv = f"{train_loss, valid_loss}"
-        config.logger.info(losses_tv)
-        wandb.log({"train loss": train_loss, "val loss": valid_loss})
-
-        snooze_switch+=1
-
-        if valid_loss < best_loss:
-            snooze_switch = 0
-            best_loss = valid_loss
-            model.save_pretrained( best_modelname )
-
-        if snooze_switch>= snooze_limit:
-            config.logger.info("============================================")
-            config.logger.info("Training stopped due to increasing val-loss")
-            config.logger.info("============================================")
-            break
-
-    # finalsummary = engine.calc_scores(test_data_loader, model, device)
-    config.logger.info("============================================")
-    config.logger.info("Scores without None")
-    config.logger.info("============================================")
-    finalsummary = engine.calc_scores_wo_none(test_data_loader, model, device)
-    wandb.run.summary["test_scores"] = finalsummary
-
-    def test_standard():
-        "Testing using standard metric..."
-        test_sents_st = make_t5_template.testing_dataset[:int(len(test_sents)/numtags)]
-        standard_sent_pred_gt = []
-        for eachsentence, eachsentencetags in tqdm(test_sents_st):
-            ans = make_t5_template.get_entities(eachsentence, eachsentencetags, template_type= config.params["TEMPLATE"])
-
-            data_instances = make_t5_template.templatize_function(sentence_text = " ".join(eachsentence), entity_text = ans[0], \
-                            entity_tags = ans[1], template_type=config.params["TEMPLATE"])
-            
-            test_st_forsent = list(zip(data_instances[2], data_instances[0], data_instances[1]))
-            test_dataset_st = dataset.seq2seq_dataset(test_st_forsent)
-
-            test_data_loader_st = torch.utils.data.DataLoader(
-                test_dataset_st, batch_size=config.params["VALID_BATCH_SIZE"], num_workers=1,
-                collate_fn=pad_collate
-            )
-            
-            predsphrases_withtags = engine.return_predictions(test_data_loader_st, model, device)
-            predtags_iob = custom_tools.find_tags_andiob(predsphrases_withtags, eachsentence)
-            standard_sent_pred_gt.append([eachsentence, predtags_iob, eachsentencetags, predsphrases_withtags])
-
-        with open("check-preds-gt-st.json","w") as fh: json.dump(standard_sent_pred_gt, fh,indent=4)
-        y_pred = [instancetags for _,instancetags,_,_ in standard_sent_pred_gt]
-        y_true = [instancetags for _, _, instancetags,_ in standard_sent_pred_gt]
-
-        fscore, cm = custom_tools.calculate_seqeval(y_true, y_pred)
-        config.logger.info("============================================")
-        config.logger.info("F-score using standard `seqeval` ")
-        config.logger.info("============================================")
-        config.logger.info(fscore)
-        config.logger.info(cm)
-
-    # test_standard()
-
-    config.logger.info("="*20)
-    shuffle(val_sents)
-    valcount = 0
-    for valsent in val_sents:
-        if valsent[-1] == "None": continue
-        if valcount == 20: break
-        valcount += 1
-        inputs = config.TOKENIZER.encode(valsent[1], return_tensors="pt")
-        outputs = model.generate(inputs.cuda())
-        config.logger.info(valsent)
-        output = "Output ->",config.TOKENIZER.decode(outputs[0], skip_special_tokens=True)
-        config.logger.info(output)
-        config.logger.info("="*20)
-
-    with open(exp_folder+"/"+config.logger_file,"w") as fh:
-        with open("logs/"+config.logger_file,"r") as fl:
-            prog = fl.read()
-        fh.write(prog)
-
     def test_standard_speedup():
         "Testing using standard metric..."
         test_sents_st = make_t5_template.testing_dataset[:int(len(test_sents)/numtags)]
@@ -304,7 +222,54 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
         config.logger.info(fscore)
         config.logger.info(cm)
 
+    best_loss = np.inf
+    for epoch in range(config.params["EPOCHS"]):
+        train_loss = engine.train_fn(train_data_loader, model, optimizer, device, scheduler)
+        valid_loss = engine.eval_fn(valid_data_loader, model, device)
+        losses_tv = f"{train_loss, valid_loss}"
+        config.logger.info(losses_tv)
+        wandb.log({"train loss": train_loss, "val loss": valid_loss})
+
+        snooze_switch+=1
+
+        if valid_loss < best_loss:
+            snooze_switch = 0
+            best_loss = valid_loss
+            model.save_pretrained( best_modelname )
+
+        if snooze_switch>= snooze_limit:
+            config.logger.info("============================================")
+            config.logger.info("Training stopped due to increasing val-loss")
+            config.logger.info("============================================")
+            break
+
+    # finalsummary = engine.calc_scores(test_data_loader, model, device)
+    config.logger.info("============================================")
+    config.logger.info("Scores without None")
+    config.logger.info("============================================")
+    finalsummary = engine.calc_scores_wo_none(test_data_loader, model, device)
+    wandb.run.summary["test_scores"] = finalsummary
+
     test_standard_speedup()
+
+    config.logger.info("="*20)
+    shuffle(val_sents)
+    valcount = 0
+    for valsent in val_sents:
+        if valsent[-1] == "None": continue
+        if valcount == 20: break
+        valcount += 1
+        inputs = config.TOKENIZER.encode(valsent[1], return_tensors="pt")
+        outputs = model.generate(inputs.cuda())
+        config.logger.info(valsent)
+        output = "Output ->",config.TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+        config.logger.info(output)
+        config.logger.info("="*20)
+
+    with open(exp_folder+"/"+config.logger_file,"w") as fh:
+        with open("logs/"+config.logger_file,"r") as fl:
+            prog = fl.read()
+        fh.write(prog)
 
 if __name__ == "__main__":
     numtags = len(make_t5_template.tag_descriptor.keys())
