@@ -314,9 +314,6 @@ if __name__ == "__main__":
     val_sents = cleanse_url_tags_train(filepath=f'{config.params["DEV_FILE"].replace(".json","")}_temp{config.params["TEMPLATE"]}.json')
     test_sents = cleanse_url_tags_train(filepath=f'{config.params["TEST_FILE"].replace(".json","")}_temp{config.params["TEMPLATE"]}.json')
 
-    val_sents = val_sents[:10*numtags]
-    test_sents = test_sents[:10*numtags]
-
     replications = 1
     if config.params["TEMPLATE"] == 2:
         replications = numtags
