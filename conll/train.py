@@ -246,7 +246,7 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
         config.logger.info(fscore)
         config.logger.info(cm)
 
-    test_standard()
+    # test_standard()
 
     config.logger.info("="*20)
     shuffle(val_sents)
