@@ -172,14 +172,15 @@ def return_predictions(data_loader, model, device):
             pred = config.TOKENIZER.decode(out, skip_special_tokens=True)
             gt = config.TOKENIZER.decode(gt, skip_special_tokens=True)
             if pred == 'None' or pred=="": continue
-            preds.append((pred, tag))
+            pred = pred.split(",")
+            preds+= [(eachpred, tag) for eachpred in pred]
 
     return preds
 
-def return_predictions_overall(data_loader, model, device):
+def return_predictions_overall(data_loader, model, device, numtags):
     """We collate all the preds of diff tag templates
     and merge preds and send them
-
+    We divide by num tags to collect tags per sample
     Args:
         data_loader ([DataLoader]): [This is only for templates of one example]
         model ([type]): [model]
@@ -190,6 +191,7 @@ def return_predictions_overall(data_loader, model, device):
     """
     model.eval()
 
+    preds = []
     for data in data_loader:
         for k, v in data.items(): #BioBERT is taking alot of space
             if k == "tagnames": continue
@@ -197,13 +199,25 @@ def return_predictions_overall(data_loader, model, device):
 
         outs = model.generate(input_ids = data["input_ids"],attention_mask = data["attention_mask"]) #forward pass
 
-        preds = []
         for out, tag, gt in zip(outs, data["tagnames"], data["labels"]):
             gt = gt.cpu().tolist()
             gt = [num for num in gt if num!=-100]
             pred = config.TOKENIZER.decode(out, skip_special_tokens=True)
-            gt = config.TOKENIZER.decode(gt, skip_special_tokens=True)
-            if pred == 'None' or pred=="": continue
-            preds.append((pred, tag))
+            if pred == "None" or pred=="":
+                preds.append("")
+            else:
+                pred = pred.split(",")
+                preds.append([(eachpred, tag) for eachpred in pred])
 
-    return preds
+    preds = [preds[i:i+numtags] for i in range(0,len(preds),numtags)]
+    assert len(preds[0])==numtags
+    no_none_preds = []
+    for sentents in preds: # List of lists(of len-numtags)
+        persent = []
+        for sentent in sentents: # sentents is a list of ents per sent
+            if sentent=="": continue
+            persent += sentent
+        
+        no_none_preds.append(persent)
+
+    return no_none_preds

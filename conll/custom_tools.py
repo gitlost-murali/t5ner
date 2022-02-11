@@ -21,6 +21,7 @@ def find_tags_andiob(searchphrases_withtags, sent):
             if searchtokens == sent[ix:ix+phraselen]:
                 tags[ix:ix+phraselen] = iobseq
 
+    assert len(sent) == len(tags)
     return tags
 
 # Testing

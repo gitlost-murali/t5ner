@@ -206,7 +206,7 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
             config.logger.info("============================================")
             break
 
-    finalsummary = engine.calc_scores(test_data_loader, model, device)
+    # finalsummary = engine.calc_scores(test_data_loader, model, device)
     config.logger.info("============================================")
     config.logger.info("Scores without None")
     config.logger.info("============================================")
@@ -235,7 +235,7 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
             predtags_iob = custom_tools.find_tags_andiob(predsphrases_withtags, eachsentence)
             standard_sent_pred_gt.append([eachsentence, predtags_iob, eachsentencetags, predsphrases_withtags])
 
-        with open("check-preds-gt.json","w") as fh: json.dump(standard_sent_pred_gt, fh,indent=4)
+        with open("check-preds-gt-st.json","w") as fh: json.dump(standard_sent_pred_gt, fh,indent=4)
         y_pred = [instancetags for _,instancetags,_,_ in standard_sent_pred_gt]
         y_true = [instancetags for _, _, instancetags,_ in standard_sent_pred_gt]
 
@@ -267,7 +267,44 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
             prog = fl.read()
         fh.write(prog)
 
+    def test_standard_speedup():
+        "Testing using standard metric..."
+        test_sents_st = make_t5_template.testing_dataset[:int(len(test_sents)/numtags)]
+        test_st_forsent = []
+        standard_sent_pred_gt = []
+        for eachsentence, eachsentencetags in tqdm(test_sents_st):
+            ans = make_t5_template.get_entities(eachsentence, eachsentencetags, template_type= config.params["TEMPLATE"])
 
+            data_instances = make_t5_template.templatize_function(sentence_text = " ".join(eachsentence), entity_text = ans[0], \
+                            entity_tags = ans[1], template_type=config.params["TEMPLATE"])
+
+            test_st_forsent += list(zip(data_instances[2], data_instances[0], data_instances[1]))
+
+        test_dataset_st = dataset.seq2seq_dataset(test_st_forsent)
+        test_data_loader_st = torch.utils.data.DataLoader(
+            test_dataset_st, batch_size=config.params["VALID_BATCH_SIZE"], num_workers=1,
+            collate_fn=pad_collate, shuffle=False
+        )
+        
+        predsphrases_withtags = engine.return_predictions_overall(test_data_loader_st, model, device, numtags)
+        assert len(predsphrases_withtags) == len(test_sents_st)
+        for sentenceinstance, predsphrases_withtags_persent in zip(test_sents_st, predsphrases_withtags):
+            eachsentence, eachsentencetags = sentenceinstance
+            predtags_iob = custom_tools.find_tags_andiob(predsphrases_withtags_persent, eachsentence)
+            standard_sent_pred_gt.append([eachsentence, predtags_iob, eachsentencetags, predsphrases_withtags_persent])
+
+        with open("check-preds-gt-speedup.json","w") as fh: json.dump(standard_sent_pred_gt, fh,indent=4)
+        y_pred = [instancetags for _,instancetags,_,_ in standard_sent_pred_gt]
+        y_true = [instancetags for _, _, instancetags,_ in standard_sent_pred_gt]
+
+        fscore, cm = custom_tools.calculate_seqeval(y_true, y_pred)
+        config.logger.info("============================================")
+        config.logger.info("F-score using standard `seqeval` ")
+        config.logger.info("============================================")
+        config.logger.info(fscore)
+        config.logger.info(cm)
+
+    test_standard_speedup()
 
 if __name__ == "__main__":
     numtags = len(make_t5_template.tag_descriptor.keys())
@@ -276,6 +313,9 @@ if __name__ == "__main__":
 
     val_sents = cleanse_url_tags_train(filepath=f'{config.params["DEV_FILE"].replace(".json","")}_temp{config.params["TEMPLATE"]}.json')
     test_sents = cleanse_url_tags_train(filepath=f'{config.params["TEST_FILE"].replace(".json","")}_temp{config.params["TEMPLATE"]}.json')
+
+    val_sents = val_sents[:10*numtags]
+    test_sents = test_sents[:10*numtags]
 
     replications = 1
     if config.params["TEMPLATE"] == 2:
