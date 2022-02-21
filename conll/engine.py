@@ -207,7 +207,7 @@ def return_predictions_overall(data_loader, model, device, numtags):
                 preds.append("")
             else:
                 pred = pred.split(",")
-                preds.append([(eachpred, tag) for eachpred in pred])
+                preds.append([(eachpred.strip(), tag) for eachpred in pred])
 
     preds = [preds[i:i+numtags] for i in range(0,len(preds),numtags)]
     assert len(preds[0])==numtags
