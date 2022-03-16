@@ -245,6 +245,7 @@ def whole_train(size, numtags, train_sents, val_sents, test_sents):
             config.logger.info("============================================")
             break
 
+    model.load_state_dict(torch.load(best_modelname))
     # finalsummary = engine.calc_scores(test_data_loader, model, device)
     config.logger.info("============================================")
     config.logger.info("Scores without None")
